@@ -1,0 +1,15 @@
+name: linux CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fossa/haskell-static-alpine:ghc-8.10.4
+    steps:
+
+    - name: Check out
+      uses: actions/checkout@v2
+
+    - name: Build on alpine
+      run: cabal build --enable-executable-static all

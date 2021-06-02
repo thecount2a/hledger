@@ -6,7 +6,7 @@ RUN pwd
 
 RUN ls
 
-RUN ls hledger
+RUN ls /root/
 
 #RUN apt-get -qq update && apt-get install -y --no-install-recommends tzdata
 #

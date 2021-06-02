@@ -1,7 +1,10 @@
 FROM arm32v7/ubuntu:21.04
 
-RUN apt-get -qq update && \
-    apt-get install -y gcc g++ make xz-utils wget vim libtinfo5 git python3 libgmp-dev libtinfo-dev zlib1g-dev locales haskell-platform
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get -qq update && apt-get install -y --no-install-recommends tzdata
+
+RUN apt-get install -y gcc g++ make xz-utils wget vim libtinfo5 git python3 libgmp-dev libtinfo-dev zlib1g-dev locales haskell-platform
 
 RUN locale-gen en_US.UTF-8
 

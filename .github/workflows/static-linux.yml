@@ -16,3 +16,12 @@ jobs:
 
     - name: Build on alpine
       run: cabal build --enable-executable-static all
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v2
+      with:
+        name: Static Binaries
+        path:
+          - dist-newstyle/build/x86_64-linux/ghc-*/hledger-web-*/x/hledger-web/build/hledger-web/hledger-web
+          - dist-newstyle/build/x86_64-linux/ghc-*/hledger-ui-*/x/hledger-ui/build/hledger-ui/hledger-ui
+          - dist-newstyle/build/x86_64-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger

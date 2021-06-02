@@ -6,7 +6,9 @@ RUN pwd
 
 RUN ls
 
-RUN ls /root/
+RUN ls -R /home
+
+RUN find / -iname hledger
 
 #RUN apt-get -qq update && apt-get install -y --no-install-recommends tzdata
 #

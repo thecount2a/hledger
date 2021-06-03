@@ -17,11 +17,18 @@ jobs:
     - name: Build on alpine
       run: cabal build --enable-executable-static all
 
+    - name: Extract and strip binaries
+      run: |
+        mkdir /tmp/hledger
+        cp dist-newstyle/build/x86_64-linux/ghc-*/hledger-web-*/x/hledger-web/build/hledger-web/hledger-web /tmp/hledger/
+        cp dist-newstyle/build/x86_64-linux/ghc-*/hledger-ui-*/x/hledger-ui/build/hledger-ui/hledger-ui /tmp/hledger/
+        cp dist-newstyle/build/x86_64-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger /tmp/hledger/
+        strip /tmp/hledger/hledger-web
+        strip /tmp/hledger/hledger-ui
+        strip /tmp/hledger/hledger
+
     - name: Upload binaries
       uses: actions/upload-artifact@v2
       with:
         name: Static Binaries
-        path: |
-          dist-newstyle/build/x86_64-linux/ghc-*/hledger-web-*/x/hledger-web/build/hledger-web/hledger-web
-          dist-newstyle/build/x86_64-linux/ghc-*/hledger-ui-*/x/hledger-ui/build/hledger-ui/hledger-ui
-          dist-newstyle/build/x86_64-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger
+        path: /tmp/hledger

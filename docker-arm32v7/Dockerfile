@@ -16,7 +16,7 @@ ENV LANGUAGE=en_US.UTF-8
 # Download and install LLVM 9.0, GHC 8.10.4, cabal 3.0, and newer libffi (for cabal)
 RUN wget --no-check-certificate "https://github.com/llvm/llvm-project/releases/download/llvmorg-9.0.1/clang+llvm-9.0.1-armv7a-linux-gnueabihf.tar.xz" \
         && wget --no-check-certificate "https://downloads.haskell.org/~ghc/8.10.4/ghc-8.10.4-armv7-deb10-linux.tar.xz" \
-        && wget --no-check-certificate "http://ports.ubuntu.com/ubuntu-ports/pool/universe/libf/libffi/libffi8ubuntu1-udeb_3.4~20200819gead65ca871-0ubuntu3_armhf.udeb"
+        && wget --no-check-certificate "http://ports.ubuntu.com/ubuntu-ports/pool/universe/libf/libffi/libffi8ubuntu1-udeb_3.4~20200819gead65ca871-0ubuntu3_armhf.udeb" \
         && wget --no-check-certificate "http://ports.ubuntu.com/ubuntu-ports/pool/universe/h/haskell-cabal-install/cabal-install_3.0.0.0-3build1_armhf.deb" \
         && echo "91638613913537f8c0c84a59f59f00fafeafb6b189164cae471d4e3bccaf1df3  clang+llvm-9.0.1-armv7a-linux-gnueabihf.tar.xz" | sha256sum -c \
         && echo "0d18ef83593272f6196a41cc3abdc48dfe5e14372db75d71ea19fe35320c4e81  ghc-8.10.4-armv7-deb10-linux.tar.xz" | sha256sum -c \

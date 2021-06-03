@@ -1,8 +1,5 @@
 FROM arm32v7/ubuntu:20.04
 
-# Just to test if we already have hledger
-RUN ls hledger
-
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -qq update && apt-get install -y --no-install-recommends tzdata && apt-get install -y gcc g++ make xz-utils wget vim libtinfo5 git python3 libgmp-dev libtinfo-dev zlib1g-dev locales && rm -rf /var/lib/apt/lists/*
@@ -32,11 +29,11 @@ RUN wget --no-check-certificate "https://github.com/llvm/llvm-project/releases/d
 # Run cabal update
 RUN cabal update
 
+# Get access to hledger source to build
+COPY . /hledger
+
 # Build dependancies
-#RUN cabal build --dependencies-only hledger-lib
+RUN cd /hledger cabal build --dependencies-only hledger-lib
 
-# Not ideal to do a manual clone but let's try it, since we don't know where the one checked out by github actions is located
-#RUN git clone https://github.com/simonmichael/hledger.git
-
-# Build static hledger binary
-RUN cd hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger || true
+# Build static hledger binary (TODO: Remove || true once building is stable)
+RUN cd /hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger || true

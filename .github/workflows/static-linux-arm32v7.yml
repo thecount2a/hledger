@@ -36,14 +36,12 @@ jobs:
           # Create temporary container from it
           container_id=$(docker create thecount2a/hledger-arm32v7:latest)
           # Copy stuff from temp container
-          docker cp $container_id:/hledger/dist-newstyle/build/arm-linux /tmp/
+          docker cp $container_id:/root/hledger /tmp/hledger-static-linux-arm32v7
           # Delete temp container
           docker rm -v $container_id
-          # Strip static binary
-          strip /tmp/arm-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger
 
       - name: Upload binary
         uses: actions/upload-artifact@v2
         with:
           name: Static Binary
-          path: /tmp/arm-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger
+          path: /tmp/hledger-static-linux-arm32v7

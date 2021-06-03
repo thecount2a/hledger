@@ -35,5 +35,5 @@ COPY . /hledger
 # Build dependancies
 RUN cd /hledger cabal build --dependencies-only hledger-lib
 
-# Build static hledger binary (TODO: Remove || true once building is stable)
-RUN cd /hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger || true
+# Build static hledger binary
+RUN cd /hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger || cp /hledger/dist-newstyle/build/arm-linux/ghc-*/hledger-*/x/hledger/build/hledger/hledger /root/ || strip /root/hledger

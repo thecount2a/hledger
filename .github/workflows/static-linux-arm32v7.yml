@@ -35,10 +35,8 @@ jobs:
         run: |
           # Get final image ID
           image_id=${{ steps.docker_build.outputs.digest }}
-          # Remove "sha256: from it"
-          image_id=${image_id#sha256:}
-          # Create temporary container from it
-          container_id=$(docker create $image_id)
+          # Create temporary container from it (remove sha256:)
+          container_id=$(docker create ${image_id#sha256:})
           # Copy stuff from temp container
           docker cp $container_id:/hledger/hledger/Hledger/ /tmp/
           # Delete temp container

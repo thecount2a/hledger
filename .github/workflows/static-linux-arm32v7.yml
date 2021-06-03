@@ -29,14 +29,14 @@ jobs:
           file: ./docker-arm32v7/Dockerfile
           platforms: linux/arm
           push: true
-          tags: thecount2a/hledger-arm32v7:latest
+          tags: |
+            thecount2a/hledger-arm32v7:latest
+            local-hledger-arm32v7:latest
 
       - name: Extract binaries from docker
         run: |
-          # Get final image ID (remove sha256:)
-          image_id=$(echo ${{ steps.docker_build.outputs.digest }} | sed 's/sha.*://')
           # Create temporary container from it
-          container_id=$(docker create $image_id)
+          container_id=$(docker create local-hledger-arm32v7:latest)
           # Copy stuff from temp container
           docker cp $container_id:/hledger/hledger/Hledger/ /tmp/
           # Delete temp container

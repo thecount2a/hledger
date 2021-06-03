@@ -34,7 +34,7 @@ jobs:
       - name: Extract binaries from docker
         run: |
           container_id=$(docker create ${{ steps.docker_build.outputs.digest }})
-          docker cp $container_id:/hledger/hledger/Hledger/ /tmp/
+          docker cp ${container_id#sha256:}:/hledger/hledger/Hledger/ /tmp/
           docker rm -v $container_id
 
       - name: Upload binary

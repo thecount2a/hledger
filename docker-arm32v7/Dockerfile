@@ -35,4 +35,4 @@ RUN cabal update
 RUN git clone https://github.com/simonmichael/hledger.git
 
 # Build static hledger binary
-RUN cd hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger
+RUN cd hledger && cabal build --enable-executable-static --with-compiler=/usr/local/bin/ghc-8.10.4 hledger || true

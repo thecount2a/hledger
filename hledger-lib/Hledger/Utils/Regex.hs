@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-|
 
 Easy regular expression helpers, currently based on regex-tdfa. These should:
@@ -69,9 +67,6 @@ import Data.Array ((!), elems, indices)
 import Data.Char (isDigit)
 import Data.List (foldl')
 import Data.MemoUgly (memo)
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import Data.Text (Text)
 import qualified Data.Text as T
 import Text.Regex.TDFA (

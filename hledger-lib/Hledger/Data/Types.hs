@@ -16,14 +16,12 @@ For more detailed documentation on each type, see the corresponding modules.
 
 -}
 
-{-# LANGUAGE CPP                  #-}
 -- {-# LANGUAGE DeriveAnyClass #-}  -- https://hackage.haskell.org/package/deepseq-1.4.4.0/docs/Control-DeepSeq.html#v:rnf
 {-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module Hledger.Data.Types
 where
@@ -40,16 +38,11 @@ import Text.Blaze (ToMarkup(..))
 --The stored values don't represent large virtual data structures to be lazily computed.
 import qualified Data.Map as M
 import Data.Ord (comparing)
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import Data.Text (Text)
--- import qualified Data.Text as T
 import Data.Time.Calendar
 import Data.Time.LocalTime
 import Data.Word (Word8)
 import System.Time (ClockTime(..))
-import Text.Printf
 
 import Hledger.Utils.Regex
 
@@ -196,13 +189,15 @@ data AmountStyle = AmountStyle {
 } deriving (Eq,Ord,Read,Generic)
 
 instance Show AmountStyle where
-  show AmountStyle{..} =
-    printf "AmountStylePP \"%s %s %s %s %s..\""
-    (show ascommodityside)
-    (show ascommodityspaced)
-    (show asprecision)
-    (show asdecimalpoint)
-    (show asdigitgroups)
+  show AmountStyle{..} = concat
+    [ "AmountStylePP \""
+    , show ascommodityside
+    , show ascommodityspaced
+    , show asprecision
+    , show asdecimalpoint
+    , show asdigitgroups
+    , "..\""
+    ]
 
 -- | The "display precision" for a hledger amount, by which we mean
 -- the number of decimal digits to display to the right of the decimal mark.

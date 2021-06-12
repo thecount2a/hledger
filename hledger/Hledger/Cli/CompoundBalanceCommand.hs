@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -17,9 +16,6 @@ module Hledger.Cli.CompoundBalanceCommand (
 
 import Data.List (foldl')
 import Data.Maybe (fromMaybe, mapMaybe)
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TB
@@ -27,7 +23,7 @@ import Data.Time.Calendar (Day, addDays)
 import System.Console.CmdArgs.Explicit as C
 import Hledger.Read.CsvReader (CSV, printCSV)
 import Lucid as L hiding (value_)
-import Text.Tabular as Tab
+import Text.Tabular.AsciiWide as Tab
 
 import Hledger
 import Hledger.Cli.Commands.Balance

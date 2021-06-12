@@ -4,7 +4,9 @@ Balance report, used by the balance command.
 
 -}
 
-{-# LANGUAGE FlexibleInstances, RecordWildCards, ScopedTypeVariables, OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Hledger.Reports.BalanceReport (
   BalanceReport,
@@ -76,7 +78,7 @@ balanceReport rspec j = (rows, total)
 -- tests
 
 Right samplejournal2 =
-  journalBalanceTransactions False
+  journalBalanceTransactions balancingOpts
     nulljournal{
       jtxns = [
         txnTieKnot Transaction{

@@ -2,7 +2,6 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE CPP #-}
 
 module Hledger.UI.AccountsScreen
  (accountsScreen
@@ -19,9 +18,6 @@ import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.List
 import Data.Maybe
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Monoid ((<>))
-#endif
 import qualified Data.Text as T
 import Data.Time.Calendar (Day, addDays)
 import qualified Data.Vector as V
@@ -167,7 +163,7 @@ asDraw UIState{aopts=_uopts@UIOpts{cliopts_=copts@CliOpts{reportspec_=rspec}}
           <+> borderQueryStr (T.unpack . T.unwords . map textQuoteIfNeeded $ querystring_ ropts)
           <+> borderDepthStr mdepth
           <+> str (" ("++curidx++"/"++totidx++")")
-          <+> (if ignore_assertions_ $ inputopts_ copts
+          <+> (if ignore_assertions_ . balancingopts_ $ inputopts_ copts
                then withAttr ("border" <> "query") (str " ignoring balance assertions")
                else str "")
           where

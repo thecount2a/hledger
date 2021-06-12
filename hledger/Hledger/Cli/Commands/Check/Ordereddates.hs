@@ -1,13 +1,8 @@
-{-# LANGUAGE CPP #-}
-
 module Hledger.Cli.Commands.Check.Ordereddates (
   journalCheckOrdereddates
 )
 where
 
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import qualified Data.Text as T
 import Hledger
 import Hledger.Cli.CliOptions
@@ -22,7 +17,7 @@ journalCheckOrdereddates CliOpts{reportspec_=rspec} j = do
     filets = 
       groupBy (\t1 t2 -> transactionFile t1 == transactionFile t2) $
       filter (rsQuery rspec `matchesTransaction`) $
-      jtxns $ journalSelectingAmountFromOpts ropts j
+      jtxns $ journalApplyValuationFromOpts rspec j
     checkunique = False -- boolopt "unique" rawopts  XXX was supported by checkdates command
     compare a b = if checkunique then getdate a < getdate b else getdate a <= getdate b
       where getdate = transactionDateFn ropts

@@ -9,7 +9,6 @@ look up the date or description there.
 -}
 
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 module Hledger.Data.Posting (
   -- * Posting
@@ -64,7 +63,6 @@ module Hledger.Data.Posting (
   -- * misc.
   showComment,
   postingTransformAmount,
-  postingApplyCostValuation,
   postingApplyValuation,
   postingToCost,
   tests_Posting
@@ -78,9 +76,6 @@ import qualified Data.Map as M
 import Data.Maybe (fromMaybe, isJust)
 import Data.MemoUgly (memo)
 import Data.List (foldl')
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Monoid
-#endif
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar (Day)
@@ -90,7 +85,7 @@ import Hledger.Utils
 import Hledger.Data.Types
 import Hledger.Data.Amount
 import Hledger.Data.AccountName
-import Hledger.Data.Dates (nulldate, spanContainsDate)
+import Hledger.Data.Dates (nulldate, showDate, spanContainsDate)
 import Hledger.Data.Valuation
 
 
@@ -163,16 +158,16 @@ originalPosting p = fromMaybe p $ poriginal p
 -- XXX once rendered user output, but just for debugging now; clean up
 showPosting :: Posting -> String
 showPosting p@Posting{paccount=a,pamount=amt,ptype=t} =
-    unlines $ [concatTopPadded [show (postingDate p) ++ " ", showaccountname a ++ " ", showamount amt, T.unpack . showComment $ pcomment p]]
-    where
-      ledger3ishlayout = False
-      acctnamewidth = if ledger3ishlayout then 25 else 22
-      showaccountname = T.unpack . fitText (Just acctnamewidth) Nothing False False . bracket . elideAccountName width
-      (bracket,width) = case t of
-                          BalancedVirtualPosting -> (wrap "[" "]", acctnamewidth-2)
-                          VirtualPosting         -> (wrap "(" ")", acctnamewidth-2)
-                          _                      -> (id,acctnamewidth)
-      showamount = wbUnpack . showMixedAmountB noColour{displayMinWidth=Just 12}
+    T.unpack $ textConcatTopPadded [showDate (postingDate p) <> " ", showaccountname a <> " ", showamt, showComment $ pcomment p]
+  where
+    ledger3ishlayout = False
+    acctnamewidth = if ledger3ishlayout then 25 else 22
+    showaccountname = fitText (Just acctnamewidth) Nothing False False . bracket . elideAccountName width
+    (bracket,width) = case t of
+                        BalancedVirtualPosting -> (wrap "[" "]", acctnamewidth-2)
+                        VirtualPosting         -> (wrap "(" ")", acctnamewidth-2)
+                        _                      -> (id,acctnamewidth)
+    showamt = wbToText $ showMixedAmountB noColour{displayMinWidth=Just 12} amt
 
 
 showComment :: Text -> Text
@@ -331,14 +326,6 @@ aliasReplace (BasicAlias old new) a
   | otherwise = Right a
 aliasReplace (RegexAlias re repl) a =
   fmap T.pack . regexReplace re repl $ T.unpack a -- XXX
-
--- | Apply a specified costing and valuation to this posting's amount,
--- using the provided price oracle, commodity styles, and reference dates.
--- Costing is done first if requested, and after that any valuation.
--- See amountApplyValuation and amountCost.
-postingApplyCostValuation :: PriceOracle -> M.Map CommoditySymbol AmountStyle -> Day -> Day -> Costing -> Maybe ValuationType -> Posting -> Posting
-postingApplyCostValuation priceoracle styles periodlast today cost v p =
-    postingTransformAmount (mixedAmountApplyCostValuation priceoracle styles periodlast today (postingDate p) cost v) p
 
 -- | Apply a specified valuation to this posting's amount, using the
 -- provided price oracle, commodity styles, and reference dates.

@@ -1,7 +1,8 @@
 -- The transaction screen, showing a single transaction's general journal entry.
 
-{-# LANGUAGE OverloadedStrings, TupleSections, RecordWildCards #-} -- , FlexibleContexts
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Hledger.UI.TransactionScreen
  (transactionScreen
@@ -13,9 +14,6 @@ import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.List
 import Data.Maybe
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Monoid
-#endif
 import qualified Data.Text as T
 import Data.Time.Calendar (Day)
 import Graphics.Vty (Event(..),Key(..),Modifier(..))
@@ -83,7 +81,10 @@ tsDraw UIState{aopts=UIOpts{cliopts_=copts@CliOpts{reportspec_=rspec@ReportSpec{
 
       render . defaultLayout toplabel bottomlabel . str
         . T.unpack . showTransactionOneLineAmounts
-        $ transactionApplyCostValuation prices styles periodlast (rsToday rspec) (cost_ ropts) (value_ ropts) t
+        . maybe id (transactionApplyValuation prices styles periodlast (rsToday rspec)) (value_ ropts)
+        $ case cost_ ropts of
+               Cost   -> transactionToCost styles t
+               NoCost -> t
         -- (if real_ ropts then filterTransactionPostings (Real True) else id) -- filter postings by --real
       where
         toplabel =
@@ -97,7 +98,7 @@ tsDraw UIState{aopts=UIOpts{cliopts_=copts@CliOpts{reportspec_=rspec@ReportSpec{
           <+> togglefilters
           <+> borderQueryStr (unwords . map (quoteIfNeeded . T.unpack) $ querystring_ ropts)
           <+> str (" in "++T.unpack (replaceHiddenAccountsNameWith "All" acct)++")")
-          <+> (if ignore_assertions_ $ inputopts_ copts then withAttr ("border" <> "query") (str " ignoring balance assertions") else str "")
+          <+> (if ignore_assertions_ . balancingopts_ $ inputopts_ copts then withAttr ("border" <> "query") (str " ignoring balance assertions") else str "")
           where
             togglefilters =
               case concat [

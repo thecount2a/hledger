@@ -1,9 +1,6 @@
-name: ci
+name: Static build x64 arch CI
 
-on:
-  push:
-    branches:
-      - 'master'
+on: [push]
 
 jobs:
   docker:

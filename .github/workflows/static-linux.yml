@@ -1,4 +1,4 @@
-name: linux CI
+name: Static build armv32v7 arch CI
 
 on: [push]
 

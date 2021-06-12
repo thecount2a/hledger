@@ -233,7 +233,6 @@ Currently, empty cells show 0.
 
 -}
 
-{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE NamedFieldPuns       #-}
 {-# LANGUAGE OverloadedStrings    #-}
@@ -258,17 +257,12 @@ module Hledger.Cli.Commands.Balance (
 import Data.Default (def)
 import Data.List (intersperse, transpose)
 import Data.Maybe (fromMaybe, maybeToList)
---import qualified Data.Map as Map
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TB
 import Data.Time (fromGregorian)
 import System.Console.CmdArgs.Explicit as C
 import Lucid as L
-import Text.Tabular as Tab
 import Text.Tabular.AsciiWide as Tab
 
 import Hledger
@@ -319,9 +313,7 @@ balance :: CliOpts -> Journal -> IO ()
 balance opts@CliOpts{reportspec_=rspec} j = case reporttype_ of
     BudgetReport -> do  -- single or multi period budget report
       let reportspan = reportSpan j rspec
-          budgetreport = budgetReport rspec assrt reportspan j
-            where
-              assrt = not $ ignore_assertions_ $ inputopts_ opts
+          budgetreport = budgetReport rspec (balancingopts_ $ inputopts_ opts) reportspan j
           render = case fmt of
             "txt"  -> budgetReportAsText ropts
             "json" -> (<>"\n") . toJsonText
@@ -477,7 +469,7 @@ multiBalanceReportAsCsv opts@ReportOpts{average_, row_total_}
    ++ ["total"   | row_total_]
    ++ ["average" | average_]
   ) :
-  [displayName a :
+  [accountNameDrop (drop_ opts) (displayFull a) :
    map (wbToText . showMixedAmountB (balanceOpts False opts))
    (amts
     ++ [rowtot | row_total_]

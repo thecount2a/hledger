@@ -7,7 +7,6 @@ tags.
 
 -}
 
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -29,11 +28,12 @@ module Hledger.Data.Transaction (
   virtualPostings,
   balancedVirtualPostings,
   transactionsPostings,
+  BalancingOpts(..),
+  balancingOpts,
   isTransactionBalanced,
   balanceTransaction,
   balanceTransactionHelper,
   transactionTransformPostings,
-  transactionApplyCostValuation,
   transactionApplyValuation,
   transactionToCost,
   transactionApplyAliases,
@@ -62,14 +62,11 @@ module Hledger.Data.Transaction (
 )
 where
 
-import Data.Default (def)
+import Data.Default (Default(..))
 import Data.Foldable (asum)
 import Data.List (intercalate, partition)
 import Data.List.Extra (nubSort)
 import Data.Maybe (fromMaybe, isNothing, mapMaybe)
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Semigroup ((<>))
-#endif
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -84,7 +81,6 @@ import Hledger.Data.Dates
 import Hledger.Data.Posting
 import Hledger.Data.Amount
 import Hledger.Data.Valuation
-import Text.Tabular
 import Text.Tabular.AsciiWide
 
 sourceFilePath :: GenericSourcePos -> FilePath
@@ -357,6 +353,21 @@ balancedVirtualPostings = filter isBalancedVirtual . tpostings
 transactionsPostings :: [Transaction] -> [Posting]
 transactionsPostings = concatMap tpostings
 
+data BalancingOpts = BalancingOpts
+  { ignore_assertions_ :: Bool  -- ^ Ignore balance assertions
+  , infer_prices_      :: Bool  -- ^ Infer prices in unbalanced multicommodity amounts
+  , commodity_styles_  :: Maybe (M.Map CommoditySymbol AmountStyle)  -- ^ commodity display styles
+  } deriving (Show)
+
+instance Default BalancingOpts where def = balancingOpts
+
+balancingOpts :: BalancingOpts
+balancingOpts = BalancingOpts
+  { ignore_assertions_ = False
+  , infer_prices_      = True
+  , commodity_styles_  = Nothing
+  }
+
 -- | Check that this transaction would appear balanced to a human when displayed.
 -- On success, returns the empty list, otherwise one or more error messages.
 --
@@ -374,13 +385,13 @@ transactionsPostings = concatMap tpostings
 -- 3. Does the amounts' sum appear non-zero when displayed ?
 --    (using the given display styles if provided)
 --
-transactionCheckBalanced :: Maybe (M.Map CommoditySymbol AmountStyle) -> Transaction -> [String]
-transactionCheckBalanced mstyles t = errs
+transactionCheckBalanced :: BalancingOpts -> Transaction -> [String]
+transactionCheckBalanced BalancingOpts{commodity_styles_} t = errs
   where
     (rps, bvps) = (realPostings t, balancedVirtualPostings t)
 
     -- check for mixed signs, detecting nonzeros at display precision
-    canonicalise = maybe id canonicaliseMixedAmount mstyles
+    canonicalise = maybe id canonicaliseMixedAmount commodity_styles_
     signsOk ps =
       case filter (not.mixedAmountLooksZero) $ map (canonicalise.mixedAmountCost.pamount) ps of
         nonzeros | length nonzeros >= 2
@@ -407,8 +418,8 @@ transactionCheckBalanced mstyles t = errs
           | otherwise     = ""
 
 -- | Legacy form of transactionCheckBalanced.
-isTransactionBalanced :: Maybe (M.Map CommoditySymbol AmountStyle) -> Transaction -> Bool
-isTransactionBalanced mstyles = null . transactionCheckBalanced mstyles
+isTransactionBalanced :: BalancingOpts -> Transaction -> Bool
+isTransactionBalanced bopts = null . transactionCheckBalanced bopts
 
 -- | Balance this transaction, ensuring that its postings
 -- (and its balanced virtual postings) sum to 0,
@@ -424,22 +435,22 @@ isTransactionBalanced mstyles = null . transactionCheckBalanced mstyles
 -- if provided, so that the result agrees with the numbers users can see.
 --
 balanceTransaction ::
-     Maybe (M.Map CommoditySymbol AmountStyle)  -- ^ commodity display styles
+     BalancingOpts
   -> Transaction
   -> Either String Transaction
-balanceTransaction mstyles = fmap fst . balanceTransactionHelper mstyles
+balanceTransaction bopts = fmap fst . balanceTransactionHelper bopts
 
 -- | Helper used by balanceTransaction and balanceTransactionWithBalanceAssignmentAndCheckAssertionsB;
 -- use one of those instead. It also returns a list of accounts
 -- and amounts that were inferred.
 balanceTransactionHelper ::
-     Maybe (M.Map CommoditySymbol AmountStyle)  -- ^ commodity display styles
+     BalancingOpts
   -> Transaction
   -> Either String (Transaction, [(AccountName, MixedAmount)])
-balanceTransactionHelper mstyles t = do
-  (t', inferredamtsandaccts) <-
-    inferBalancingAmount (fromMaybe M.empty mstyles) $ inferBalancingPrices t
-  case transactionCheckBalanced mstyles t' of
+balanceTransactionHelper bopts t = do
+  (t', inferredamtsandaccts) <- inferBalancingAmount (fromMaybe M.empty $ commodity_styles_ bopts) $
+    if infer_prices_ bopts then inferBalancingPrices t else t
+  case transactionCheckBalanced bopts t' of
     []   -> Right (txnTieKnot t', inferredamtsandaccts)
     errs -> Left $ transactionBalanceError t' errs
 
@@ -552,41 +563,42 @@ inferBalancingPrices t@Transaction{tpostings=ps} = t{tpostings=ps'}
 -- posting type (real or balanced virtual). If we cannot or should not infer
 -- prices, just act as the identity on postings.
 priceInferrerFor :: Transaction -> PostingType -> (Posting -> Posting)
-priceInferrerFor t pt = maybe id inferprice $ inferFromAndTo sumamounts
+priceInferrerFor t pt = maybe id inferprice inferFromAndTo
   where
     postings     = filter ((==pt).ptype) $ tpostings t
     pcommodities = map acommodity $ concatMap (amounts . pamount) postings
     sumamounts   = amounts $ sumPostings postings  -- amounts normalises to one amount per commodity & price
-    noprices     = all (isNothing . aprice) sumamounts
 
-    -- We can infer prices if there are no prices given, and exactly two commodities in the
-    -- normalised sum of postings in this transaction. The amount we are converting from is
-    -- the first commodity to appear in the ordered list of postings, and the commodity we
-    -- are converting to is the other. If we cannot infer prices, return Nothing.
-    inferFromAndTo [a,b] | noprices = asum $ map orderIfMatches pcommodities
-      where orderIfMatches x | x == acommodity a = Just (a,b)
-                             | x == acommodity b = Just (b,a)
-                             | otherwise         = Nothing
-    inferFromAndTo _ = Nothing
+    -- We can infer prices if there are no prices given, exactly two commodities in the normalised
+    -- sum of postings in this transaction, and these two have opposite signs. The amount we are
+    -- converting from is the first commodity to appear in the ordered list of postings, and the
+    -- commodity we are converting to is the other. If we cannot infer prices, return Nothing.
+    inferFromAndTo = case sumamounts of
+      [a,b] | noprices, oppositesigns -> asum $ map orderIfMatches pcommodities
+        where
+          noprices      = all (isNothing . aprice) sumamounts
+          oppositesigns = signum (aquantity a) /= signum (aquantity b)
+          orderIfMatches x | x == acommodity a = Just (a,b)
+                           | x == acommodity b = Just (b,a)
+                           | otherwise         = Nothing
+      _ -> Nothing
 
     -- For each posting, if the posting type matches, there is only a single amount in the posting,
     -- and the commodity of the amount matches the amount we're converting from,
     -- then set its price based on the ratio between fromamount and toamount.
     inferprice (fromamount, toamount) posting
         | [a] <- amounts (pamount posting), ptype posting == pt, acommodity a == acommodity fromamount
-        , let totalpricesign = if aquantity a < 0 then negate else id
-            = posting{ pamount   = mixedAmount a{aprice=Just $ conversionprice totalpricesign}
+            = posting{ pamount   = mixedAmount a{aprice=Just conversionprice}
                      , poriginal = Just $ originalPosting posting }
         | otherwise = posting
       where
-        -- If only one Amount in the posting list matches fromamount we can use TotalPrice,
-        -- but we need to know the sign. Otherwise divide the conversion equally among the
-        -- Amounts by using a unit price.
-        conversionprice sign = case filter (== acommodity fromamount) pcommodities of
-            [_] -> TotalPrice $ sign (abs toamount) `withPrecision` NaturalPrecision
-            _   -> UnitPrice  $ abs unitprice       `withPrecision` unitprecision
+        -- If only one Amount in the posting list matches fromamount we can use TotalPrice.
+        -- Otherwise divide the conversion equally among the Amounts by using a unit price.
+        conversionprice = case filter (== acommodity fromamount) pcommodities of
+            [_] -> TotalPrice $ negate toamount
+            _   -> UnitPrice  $ negate unitprice `withPrecision` unitprecision
 
-        unitprice     = (aquantity fromamount) `divideAmount` toamount
+        unitprice     = aquantity fromamount `divideAmount` toamount
         unitprecision = case (asprecision $ astyle fromamount, asprecision $ astyle toamount) of
             (Precision a, Precision b) -> Precision . max 2 $ saturatedAdd a b
             _                          -> NaturalPrecision
@@ -615,13 +627,6 @@ postingSetTransaction t p = p{ptransaction=Just t}
 transactionTransformPostings :: (Posting -> Posting) -> Transaction -> Transaction
 transactionTransformPostings f t@Transaction{tpostings=ps} = t{tpostings=map f ps}
 
--- | Apply a specified costing and valuation to this transaction's amounts,
--- using the provided price oracle, commodity styles, and reference dates.
--- See amountApplyValuation and amountCost.
-transactionApplyCostValuation :: PriceOracle -> M.Map CommoditySymbol AmountStyle -> Day -> Day -> Costing -> Maybe ValuationType -> Transaction -> Transaction
-transactionApplyCostValuation priceoracle styles periodlast today cost v =
-  transactionTransformPostings (postingApplyCostValuation priceoracle styles periodlast today cost v)
-
 -- | Apply a specified valuation to this transaction's amounts, using
 -- the provided price oracle, commodity styles, and reference dates.
 -- See amountApplyValuation.
@@ -631,7 +636,7 @@ transactionApplyValuation priceoracle styles periodlast today v =
 
 -- | Convert this transaction's amounts to cost, and apply the appropriate amount styles.
 transactionToCost :: M.Map CommoditySymbol AmountStyle -> Transaction -> Transaction
-transactionToCost styles t@Transaction{tpostings=ps} = t{tpostings=map (postingToCost styles) ps}
+transactionToCost styles = transactionTransformPostings (postingToCost styles)
 
 -- | Apply some account aliases to all posting account names in the transaction, as described by accountNameApplyAliases.
 -- This can fail due to a bad replacement pattern in a regular expression alias.
@@ -850,8 +855,7 @@ tests_Transaction =
     , tests "balanceTransaction" [
          test "detect unbalanced entry, sign error" $
           assertLeft
-            (balanceTransaction
-               Nothing
+            (balanceTransaction def
                (Transaction
                   0
                   ""
@@ -866,8 +870,7 @@ tests_Transaction =
                   [posting {paccount = "a", pamount = mixedAmount (usd 1)}, posting {paccount = "b", pamount = mixedAmount (usd 1)}]))
         ,test "detect unbalanced entry, multiple missing amounts" $
           assertLeft $
-             balanceTransaction
-               Nothing
+             balanceTransaction def
                (Transaction
                   0
                   ""
@@ -884,8 +887,7 @@ tests_Transaction =
                   ])
         ,test "one missing amount is inferred" $
           (pamount . last . tpostings <$>
-           balanceTransaction
-             Nothing
+           balanceTransaction def
              (Transaction
                 0
                 ""
@@ -901,8 +903,7 @@ tests_Transaction =
           Right (mixedAmount $ usd (-1))
         ,test "conversion price is inferred" $
           (pamount . head . tpostings <$>
-           balanceTransaction
-             Nothing
+           balanceTransaction def
              (Transaction
                 0
                 ""
@@ -917,11 +918,10 @@ tests_Transaction =
                 [ posting {paccount = "a", pamount = mixedAmount (usd 1.35)}
                 , posting {paccount = "b", pamount = mixedAmount (eur (-1))}
                 ])) @?=
-          Right (mixedAmount $ usd 1.35 @@ (eur 1 `withPrecision` NaturalPrecision))
+          Right (mixedAmount $ usd 1.35 @@ eur 1)
         ,test "balanceTransaction balances based on cost if there are unit prices" $
           assertRight $
-          balanceTransaction
-            Nothing
+          balanceTransaction def
             (Transaction
                0
                ""
@@ -938,8 +938,7 @@ tests_Transaction =
                ])
         ,test "balanceTransaction balances based on cost if there are total prices" $
           assertRight $
-          balanceTransaction
-            Nothing
+          balanceTransaction def
             (Transaction
                0
                ""
@@ -958,7 +957,7 @@ tests_Transaction =
     , tests "isTransactionBalanced" [
          test "detect balanced" $
           assertBool "" $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -976,7 +975,7 @@ tests_Transaction =
         ,test "detect unbalanced" $
           assertBool "" $
           not $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -994,7 +993,7 @@ tests_Transaction =
         ,test "detect unbalanced, one posting" $
           assertBool "" $
           not $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -1009,7 +1008,7 @@ tests_Transaction =
             [posting {paccount = "b", pamount = mixedAmount (usd 1.00)}]
         ,test "one zero posting is considered balanced for now" $
           assertBool "" $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -1024,7 +1023,7 @@ tests_Transaction =
             [posting {paccount = "b", pamount = mixedAmount (usd 0)}]
         ,test "virtual postings don't need to balance" $
           assertBool "" $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -1043,7 +1042,7 @@ tests_Transaction =
         ,test "balanced virtual postings need to balance among themselves" $
           assertBool "" $
           not $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""
@@ -1061,7 +1060,7 @@ tests_Transaction =
             ]
         ,test "balanced virtual postings need to balance among themselves (2)" $
           assertBool "" $
-          isTransactionBalanced Nothing $
+          isTransactionBalanced def $
           Transaction
             0
             ""

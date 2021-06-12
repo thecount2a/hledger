@@ -21,7 +21,7 @@ github: simonmichael/hledger
 homepage: http://hledger.org
 bug-reports: http://bugs.hledger.org
 stability: stable
-tested-with: GHC==8.2.2, GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.4
+tested-with: GHC==8.6.5, GHC==8.8.4, GHC==8.10.4
 
 extra-source-files:
 - CHANGES.md
@@ -108,6 +108,7 @@ dependencies:
 - directory
 - extra >=1.6.3
 - filepath
+- githash >=0.1.2
 - haskeline >=0.6
 - megaparsec >=7.0.0 && <9.1
 - mtl >=2.2.1

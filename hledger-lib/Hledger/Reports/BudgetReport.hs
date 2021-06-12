@@ -1,12 +1,7 @@
-{- |
--}
-
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
 
 module Hledger.Reports.BudgetReport (
   BudgetGoal,
@@ -34,9 +29,6 @@ import qualified Data.HashMap.Strict as HM
 import Data.List (find, partition, transpose)
 import Data.List.Extra (nubSort)
 import Data.Maybe (fromMaybe)
-#if !(MIN_VERSION_base(4,11,0))
-import Data.Monoid ((<>))
-#endif
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Set as S
@@ -46,8 +38,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TB
 --import System.Console.CmdArgs.Explicit as C
 --import Lucid as L
-import Text.Tabular as T
-import Text.Tabular.AsciiWide as T
+import Text.Tabular.AsciiWide as Tab
 
 import Hledger.Data
 import Hledger.Utils
@@ -72,8 +63,8 @@ type BudgetDisplayCell = ((Text, Int), Maybe ((Text, Int), Maybe (Text, Int)))
 -- from all periodic transactions, calculate actual balance changes 
 -- from the regular transactions, and compare these to get a 'BudgetReport'.
 -- Unbudgeted accounts may be hidden or renamed (see journalWithBudgetAccountNames).
-budgetReport :: ReportSpec -> Bool -> DateSpan -> Journal -> BudgetReport
-budgetReport rspec assrt reportspan j = dbg4 "sortedbudgetreport" budgetreport
+budgetReport :: ReportSpec -> BalancingOpts -> DateSpan -> Journal -> BudgetReport
+budgetReport rspec bopts reportspan j = dbg4 "sortedbudgetreport" budgetreport
   where
     -- Budget report demands ALTree mode to ensure subaccounts and subaccount budgets are properly handled
     -- and that reports with and without --empty make sense when compared side by side
@@ -88,7 +79,7 @@ budgetReport rspec assrt reportspan j = dbg4 "sortedbudgetreport" budgetreport
       concatMap (`runPeriodicTransaction` reportspan) $
       jperiodictxns j
     actualj = journalWithBudgetAccountNames budgetedaccts showunbudgeted j
-    budgetj = journalAddBudgetGoalTransactions assrt ropts reportspan j
+    budgetj = journalAddBudgetGoalTransactions bopts ropts reportspan j
     actualreport@(PeriodicReport actualspans _ _) =
         dbg5 "actualreport" $ multiBalanceReport rspec{rsOpts=ropts{empty_=True}} actualj
     budgetgoalreport@(PeriodicReport _ budgetgoalitems budgetgoaltotals) =
@@ -106,9 +97,9 @@ budgetReport rspec assrt reportspan j = dbg4 "sortedbudgetreport" budgetreport
 -- Budget goal transactions are similar to forecast transactions except
 -- their purpose and effect is to define balance change goals, per account and period,
 -- for BudgetReport.
-journalAddBudgetGoalTransactions :: Bool -> ReportOpts -> DateSpan -> Journal -> Journal
-journalAddBudgetGoalTransactions assrt _ropts reportspan j =
-  either error' id $ journalBalanceTransactions assrt j{ jtxns = budgetts }  -- PARTIAL:
+journalAddBudgetGoalTransactions :: BalancingOpts -> ReportOpts -> DateSpan -> Journal -> Journal
+journalAddBudgetGoalTransactions bopts _ropts reportspan j =
+  either error' id $ journalBalanceTransactions bopts j{ jtxns = budgetts }  -- PARTIAL:
   where
     budgetspan = dbg3 "budget span" $ reportspan
     budgetts =
@@ -293,8 +284,8 @@ budgetReportAsTable
   (PeriodicReport spans rows (PeriodicReportRow _ coltots grandtot grandavg)) =
     addtotalrow $
     Table
-      (T.Group NoLine $ map Header accts)
-      (T.Group NoLine $ map Header colheadings)
+      (Tab.Group NoLine $ map Header accts)
+      (Tab.Group NoLine $ map Header colheadings)
       (map rowvals rows)
   where
     colheadings = map (reportPeriodName balancetype_ spans) spans

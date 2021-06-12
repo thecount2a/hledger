@@ -1,38 +1,37 @@
-FROM arm32v7/ubuntu:21.04
+FROM haskell as dev
 
-ENV DEBIAN_FRONTEND=noninteractive
+RUN mkdir /root/hledger
+WORKDIR /root/hledger
 
-RUN apt-get -qq update && apt-get install -y --no-install-recommends tzdata
+# Install GHC
+COPY ./stack*.yaml ./
+RUN stack setup
 
-RUN apt-get install -y gcc g++ make xz-utils wget vim libtinfo5 git python3 libgmp-dev libtinfo-dev zlib1g-dev locales haskell-platform
+# Pre-cache dependencies
+RUN mkdir hledger-lib hledger hledger-ui hledger-web
+COPY hledger-lib/package.yaml hledger-lib/package.yaml
+COPY hledger/package.yaml hledger/package.yaml
+COPY hledger-ui/package.yaml hledger-ui/package.yaml
+COPY hledger-web/package.yaml hledger-web/package.yaml
+RUN stack install --dependencies-only
 
-RUN locale-gen en_US.UTF-8
+# Actually compile sources
+COPY . .
+RUN stack install
 
-RUN update-locale LC_ALL=en_US.UTF-8
-RUN update-locale LANG=en_US.UTF-8
-RUN update-locale LANGUAGE=en_US.UTF-8
+FROM debian:stable-slim
 
-ENV LC_ALL=en_US.UTF-8
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US.UTF-8
+RUN apt-get update && apt-get install libtinfo5 libgmp10 && rm -rf /var/lib/apt/lists
 
-RUN wget "https://github.com/llvm/llvm-project/releases/download/llvmorg-9.0.1/clang+llvm-9.0.1-armv7a-linux-gnueabihf.tar.xz" \
-        && wget "https://downloads.haskell.org/~ghc/8.10.4/ghc-8.10.4-armv7-deb10-linux.tar.xz" \
-        && tar xvf clang+llvm-9.0.1-armv7a-linux-gnueabihf.tar.xz \
-        && tar xvf ghc-8.10.4-armv7-deb10-linux.tar.xz
+COPY --from=dev /root/.local/bin/hledger* /usr/bin/
 
-RUN cd clang+llvm-9.0.1-armv7a-linux-gnueabihf && mv bin/* /usr/local/bin/ && mv include/* /usr/local/include/ && mv lib/* /usr/local/lib/ && cd .. && rm clang+llvm-9.0.1-armv7a-linux-gnueabihf.tar.xz
+ENV LC_ALL C.UTF-8
 
-RUN cd ghc-8.10.4 && ./configure && make install && cd .. && rm -r ghc-8.10.4 && rm ghc-8.10.4-armv7-deb10-linux.tar.xz
+RUN mkdir /data && touch /data/hledger.journal
+VOLUME /data
 
-# Run cabal update
-RUN cabal update
+EXPOSE 5000 5001
 
-# Build dependancies
-#RUN cabal build --dependencies-only hledger-lib
+COPY docker/start.sh /start.sh
 
-# Not ideal to do a manual clone but let's try it, since we don't know where the one checked out by github actions is located
-RUN git clone https://github.com/simonmichael/hledger.git
-
-# Build static hledger binary
-#RUN cd hledger && cabal build --enable-executable-static hledger
+CMD ["/start.sh"]

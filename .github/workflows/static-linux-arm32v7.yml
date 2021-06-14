@@ -23,15 +23,15 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          file: ./docker-arm32v7/Dockerfile
+          file: ./docker-static-arm32v7/Dockerfile
           platforms: linux/arm
           push: true
-          tags: thecount2a/hledger-arm32v7:latest
+          tags: thecount2a/hledger-static-linux-arm32v7:latest
 
       - name: Extract binaries from docker
         run: |
           # Create temporary container from it
-          container_id=$(docker create thecount2a/hledger-arm32v7:latest)
+          container_id=$(docker create thecount2a/hledger-static-linux-arm32v7:latest)
           # Copy stuff from temp container
           docker cp $container_id:/root/hledger /tmp/hledger-static-linux-arm32v7
           # Delete temp container

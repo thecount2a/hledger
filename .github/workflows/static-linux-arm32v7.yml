@@ -25,11 +25,13 @@ jobs:
         with:
           file: ./docker-static-arm32v7/Dockerfile
           platforms: linux/arm
-          push: false
           tags: hledger-static-linux-arm32v7:latest
+          outputs: type=docker,dest=/tmp/image.tar
 
       - name: Extract binaries from docker
         run: |
+          # Load generated docker image from file
+          docker load --input /tmp/image.tar
           # Create temporary container from it
           container_id=$(docker create hledger-static-linux-arm32v7:latest)
           # Copy stuff from temp container

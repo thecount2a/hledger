@@ -31,13 +31,13 @@ jobs:
         with:
           file: ./docker-static-x64/Dockerfile
           platforms: linux/amd64
-          push: true
-          tags: thecount2a/hledger-static-linux-x64:latest
+          push: false
+          tags: hledger-static-linux-x64:latest
 
       - name: Extract binaries from docker
         run: |
           # Create temporary container from it
-          container_id=$(docker create thecount2a/hledger-static-linux-x64:latest)
+          container_id=$(docker create hledger-static-linux-x64:latest)
           # Copy stuff from temp container
           docker cp $container_id:/tmp/hledger /tmp
           # Delete temp container

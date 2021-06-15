@@ -26,12 +26,10 @@ jobs:
           file: ./docker-static-x64/Dockerfile
           platforms: linux/amd64
           tags: hledger-static-linux-x64:latest
-          outputs: type=docker,dest=/tmp/image.tar
+          load: true
 
       - name: Extract binaries from docker
         run: |
-          # Load generated docker image from file
-          docker load --input /tmp/image.tar
           # Create temporary container from it
           container_id=$(docker create hledger-static-linux-x64:latest)
           # Copy stuff from temp container

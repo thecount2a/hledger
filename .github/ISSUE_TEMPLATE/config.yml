@@ -1,0 +1,11 @@
+# https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository
+
+blank_issues_enabled: true
+contact_links:
+  - name: Questions, Support
+    url: https://hledger.org/#help-feedback
+    about: For questions and support, please use our Chat or Mail list.
+  # doesn't show, mailto: probably not supported
+  # - name: hledger project security issues
+  #   url: mailto:simon@joyful.com
+  #   about: Please report security vulnerabilities here.

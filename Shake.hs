@@ -111,6 +111,12 @@ sed = "sed -E"
 grep = "grep -E"
 
 -- The kind of markdown used in our doc source files.
+-- Note: without +hard_line_breaks here, paragraphs get refilled,
+-- which is good for nice rendered info/man/text output, but so do
+-- multiline arguments to m4 macros, which is bad eg when using
+-- _info_ to add Info directives (cf #806). For such situations we
+-- work around by calling the macro for each line of text, it
+-- would be nice to find a way to avoid this.
 fromsrcmd = "-f markdown-smart-tex_math_dollars"
 
 -- The kind of markdown we like to generate for the website.
@@ -132,9 +138,6 @@ main = do
     filter (not . ("README." `isPrefixOf`) . takeFileName) . filter (".md" `isSuffixOf`) . map (commandsdir </>)
     <$> S.getDirectoryContents commandsdir
   let commandtxts = map (-<.> "txt") commandmds
-
-  let sitedir = "site"
-  pages <- map takeBaseName . filter (".md" `isSuffixOf`) <$> S.getDirectoryContents sitedir
 
   -- Run the shake rule selected by the first command line argument.
   -- Other arguments and some custom flags are set aside for the rule
@@ -421,7 +424,7 @@ main = do
         need $ [src, commonm4, commandsm4, packagemanversionm4, packagemandatem4, tmpl] ++ subfiles
         when (dir=="hledger") $ need commandmds
         cmd Shell
-          m4 "-DMAN -I" dir commonm4 commandsm4 packagemanversionm4 packagemandatem4 src "|"
+          m4 "-DMANFORMAT -I" dir commonm4 commandsm4 packagemanversionm4 packagemandatem4 src "|"
           pandoc fromsrcmd "-s" "--template" tmpl
           ("-V footer='"++pkg++"-"++pkgversion++"'")
           "--lua-filter tools/pandoc-drop-html-blocks.lua"
@@ -458,7 +461,7 @@ main = do
         need $ [src, commonm4, commandsm4, packagemanversionm4, packagemandatem4] ++ subfiles
         when (dir=="hledger") $ need commandmds
         cmd Shell
-          m4 "-DINFO -I" dir commonm4 commandsm4 packagemanversionm4 packagemandatem4 src "|"
+          m4 "-DINFOFORMAT -I" dir commonm4 commandsm4 packagemanversionm4 packagemandatem4 src "|"
           -- sed "-e 's/^#(#+)/\\1/'" "|"
           pandoc fromsrcmd
           "--lua-filter tools/pandoc-drop-html-blocks.lua"
@@ -510,7 +513,7 @@ main = do
           ,""
           ]
         cmd Shell
-          m4 "-DWEB -I" dir commonm4 commandsm4 packageversionm4 packagemandatem4 src "|"
+          m4 "-DWEBFORMAT -I" dir commonm4 commandsm4 packageversionm4 packagemandatem4 src "|"
           pandoc fromsrcmd towebmd
           "--lua-filter tools/pandoc-demote-headers.lua"
           ">>" out
